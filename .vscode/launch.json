@@ -1,0 +1,23 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "type": "cppvsdbg",
+            "request": "launch",
+            "name": "Launch word_generator",
+            "program": "${workspaceFolder}/${input:executablePath}",
+            "preLaunchTask": "build-word-generator",
+            "cwd": "${workspaceFolder}"
+        }
+    ],
+    "inputs": [
+        {
+            "type": "pickString",
+            "id": "executablePath",
+            "description": "Select the executable to debug",
+            "options": [
+                "zig-out/bin/word_generator.exe"
+            ]
+        }
+    ]
+}
