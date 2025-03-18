@@ -52,16 +52,81 @@ pub fn random_word(random: std.Random, words: *std.ArrayList(u8), syllable_count
     }
 }
 
+pub const ParseError = error{
+    OutOfMemory,
+    UnknownArgument,
+    InvalidWordCount,
+    InvalidMinSyllableCount,
+    InvalidMaxSyllableCount,
+};
+
+pub const GeneratorOptions = struct {
+    word_count: usize,
+    min_syllable_count: usize,
+    max_syllable_count: usize,
+};
+
+pub fn parse_options(allocator: std.mem.Allocator) !GeneratorOptions {
+    var argsIterator = try std.process.ArgIterator.initWithAllocator(allocator);
+    defer argsIterator.deinit();
+
+    var word_count: usize = 10;
+    var min_syllable_count: usize = 1;
+    var max_syllable_count: usize = 5;
+
+    _ = argsIterator.next(); // Skip the program name.
+
+    const Case = enum {
+        @"-w",
+        @"--word-count",
+        @"-m",
+        @"--min-syllable-count",
+        @"-M",
+        @"--max-syllable-count",
+    };
+
+    while (argsIterator.next()) |arg| {
+        const case = std.meta.stringToEnum(Case, arg) orelse {
+            return error.UnknownArgument;
+        };
+        switch (case) {
+            .@"-w", .@"--word-count" => {
+                if (argsIterator.next()) |wc| {
+                    word_count = try std.fmt.parseUnsigned(usize, wc, 10);
+                } else {
+                    return error.InvalidWordCount;
+                }
+            },
+            .@"-m", .@"--min-syllable-count" => {
+                if (argsIterator.next()) |msc| {
+                    min_syllable_count = try std.fmt.parseUnsigned(usize, msc, 10);
+                } else {
+                    return error.InvalidMinSyllableCount;
+                }
+            },
+            .@"-M", .@"--max-syllable-count" => {
+                if (argsIterator.next()) |msc| {
+                    max_syllable_count = try std.fmt.parseUnsigned(usize, msc, 10);
+                } else {
+                    return error.InvalidMaxSyllableCount;
+                }
+            },
+        }
+    }
+
+    return GeneratorOptions{
+        .word_count = word_count,
+        .min_syllable_count = min_syllable_count,
+        .max_syllable_count = max_syllable_count,
+    };
+}
+
 pub fn main() !void {
     var gpa: std.heap.GeneralPurposeAllocator(.{}) = .{};
 
     const allocator = gpa.allocator();
 
-    var argsIterator = try std.process.ArgIterator.initWithAllocator(allocator);
-    defer argsIterator.deinit();
-
-    _ = argsIterator.next(); // Skip the program name.
-    const word_count = if (argsIterator.next()) |wc| try std.fmt.parseInt(usize, wc, 10) else 10;
+    const options = try parse_options(allocator);
 
     var prng = std.Random.DefaultPrng.init(blk: {
         var seed: u64 = undefined;
@@ -72,8 +137,8 @@ pub fn main() !void {
 
     var words = std.ArrayList(u8).init(allocator);
     defer words.deinit();
-    for (0..word_count) |_| {
-        try random_word(random, &words, random.intRangeAtMost(usize, 1, 5));
+    for (0..options.word_count) |_| {
+        try random_word(random, &words, random.intRangeAtMost(usize, options.min_syllable_count, options.max_syllable_count));
         try words.append('\n');
     }
     try std.io.getStdOut().writeAll(words.items);
