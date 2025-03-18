@@ -1,46 +1,80 @@
-//! By convention, main.zig is where your main function lives in the case that
-//! you are building an executable. If you are making a library, the convention
-//! is to delete this file and start with root.zig instead.
+const std = @import("std");
+const VOWELS: []const u8 = "aeiou";
+const CONSONANTS: []const u8 = "bcdfghjklmnpqrstvwxyz";
+
+// word: syllable*
+// syllable: consonant vowel consonant
+//         | consonant vowel
+//         | vowel consonant
+//         | vowel
+// vowel: 'aeiou'
+// consonant: 'bcdfghjklmnpqrstvwxyz'
+
+pub fn random_vowel(random: std.Random) u8 {
+    return VOWELS[random.uintLessThan(usize, VOWELS.len)];
+}
+
+pub fn random_consonant(random: std.Random) u8 {
+    return CONSONANTS[random.uintLessThan(usize, CONSONANTS.len)];
+}
+
+pub fn random_syllable(random: std.Random, result: *std.ArrayList(u8)) !void {
+    const expr = random.intRangeLessThan(usize, 0, 4);
+
+    switch (expr) {
+        0 => {
+            try result.append(random_consonant(random));
+            try result.append(random_vowel(random));
+            try result.append(random_consonant(random));
+            return;
+        },
+        1 => {
+            try result.append(random_consonant(random));
+            try result.append(random_vowel(random));
+            return;
+        },
+        2 => {
+            try result.append(random_vowel(random));
+            try result.append(random_consonant(random));
+            return;
+        },
+        3 => {
+            try result.append(random_vowel(random));
+            return;
+        },
+        else => unreachable,
+    }
+}
+
+pub fn random_word(random: std.Random, words: *std.ArrayList(u8), syllable_count: usize) !void {
+    for (0..syllable_count) |_| {
+        try random_syllable(random, words);
+    }
+}
 
 pub fn main() !void {
-    // Prints to stderr (it's a shortcut based on `std.io.getStdErr()`)
-    std.debug.print("All your {s} are belong to us.\n", .{"codebase"});
+    var gpa: std.heap.GeneralPurposeAllocator(.{}) = .{};
 
-    // stdout is for the actual output of your application, for example if you
-    // are implementing gzip, then only the compressed bytes should be sent to
-    // stdout, not any debugging messages.
-    const stdout_file = std.io.getStdOut().writer();
-    var bw = std.io.bufferedWriter(stdout_file);
-    const stdout = bw.writer();
+    const allocator = gpa.allocator();
 
-    try stdout.print("Run `zig build test` to run the tests.\n", .{});
+    var argsIterator = try std.process.ArgIterator.initWithAllocator(allocator);
+    defer argsIterator.deinit();
 
-    try bw.flush(); // Don't forget to flush!
+    _ = argsIterator.next(); // Skip the program name.
+    const word_count = if (argsIterator.next()) |wc| try std.fmt.parseInt(usize, wc, 10) else 10;
+
+    var prng = std.Random.DefaultPrng.init(blk: {
+        var seed: u64 = undefined;
+        try std.posix.getrandom(std.mem.asBytes(&seed));
+        break :blk seed;
+    });
+    const random = prng.random();
+
+    var words = std.ArrayList(u8).init(allocator);
+    defer words.deinit();
+    for (0..word_count) |_| {
+        try random_word(random, &words, random.intRangeAtMost(usize, 1, 5));
+        try words.append('\n');
+    }
+    try std.io.getStdOut().writeAll(words.items);
 }
-
-test "simple test" {
-    var list = std.ArrayList(i32).init(std.testing.allocator);
-    defer list.deinit(); // Try commenting this out and see if zig detects the memory leak!
-    try list.append(42);
-    try std.testing.expectEqual(@as(i32, 42), list.pop());
-}
-
-test "use other module" {
-    try std.testing.expectEqual(@as(i32, 150), lib.add(100, 50));
-}
-
-test "fuzz example" {
-    const Context = struct {
-        fn testOne(context: @This(), input: []const u8) anyerror!void {
-            _ = context;
-            // Try passing `--fuzz` to `zig build test` and see if it manages to fail this test case!
-            try std.testing.expect(!std.mem.eql(u8, "canyoufindme", input));
-        }
-    };
-    try std.testing.fuzz(Context{}, Context.testOne, .{});
-}
-
-const std = @import("std");
-
-/// This imports the separate module containing `root.zig`. Take a look in `build.zig` for details.
-const lib = @import("word_generator_lib");
