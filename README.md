@@ -23,11 +23,12 @@ zig build run
 
 By default, the program generates 10 random words, with 1 to 5 syllables. This is configurable:
 
-| Argument                      | Type    | Description                              |
-|-------------------------------|---------|------------------------------------------|
-| `-w` / `--word-count`         | `usize` | Number of words to generate              |
-| `-m` / `--min-syllable-count` | `usize` | Minimum number of syllables per word     |
-| `-M` / `--max-syllable-count` | `usize` | Maximum number of syllables per word     |
+| Argument                      | Type    | Description                               |
+|-------------------------------|---------|-------------------------------------------|
+| `-w` / `--word-count`         | `usize` | Number of words to generate               |
+| `-m` / `--min-syllable-count` | `usize` | Minimum number of syllables per word      |
+| `-M` / `--max-syllable-count` | `usize` | Maximum number of syllables per word      |
+| `-p` / `--mutations`          | `usize` | Number of mutations to apply to each word |
 
 ### Example Output
 Here’s an example of the program’s output, using `zig build run`:
@@ -45,7 +46,8 @@ uf
 ```
 
 ## How It Works
-The program composes words by generating 1 to 5 random syllables. A word is defined as follows:
+The program composes words by generating random syllables and then apply a set of mutations on each word.
+A word is defined as follows:
 ```
      word : syllable*
  syllable : consonant vowel consonant
